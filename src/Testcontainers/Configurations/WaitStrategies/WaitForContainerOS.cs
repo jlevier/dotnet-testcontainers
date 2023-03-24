@@ -4,6 +4,7 @@ namespace DotNet.Testcontainers.Configurations
   using System.Collections.Generic;
   using System.IO;
   using System.Text.RegularExpressions;
+  using DotNet.Testcontainers.Configurations.WaitStrategies;
 
   /// <inheritdoc cref="IWaitForContainerOS" />
   internal abstract class WaitForContainerOS : IWaitForContainerOS
@@ -44,6 +45,14 @@ namespace DotNet.Testcontainers.Configurations
     public IWaitForContainerOS UntilMessageIsLogged(string pattern)
     {
       return this.AddCustomWaitStrategy(new UntilMessageIsLogged(pattern));
+    }
+
+    /// <inheritdoc />
+    public IWaitForContainerOS UntilMessageIsLogged(string pattern, Action<WaitStrategyOptions> options)
+    {
+      var waitStrategyOptions = new WaitStrategyOptions();
+      options.Invoke(waitStrategyOptions);
+      return this.AddCustomWaitStrategy(new UntilMessageIsLogged(pattern, waitStrategyOptions));
     }
 
     /// <inheritdoc />

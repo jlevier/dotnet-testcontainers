@@ -4,6 +4,7 @@ namespace DotNet.Testcontainers.Containers
   using System.Collections.Generic;
   using System.Globalization;
   using System.Linq;
+  using System.Reflection;
   using System.Threading;
   using System.Threading.Tasks;
   using Docker.DotNet;
@@ -408,15 +409,6 @@ namespace DotNet.Testcontainers.Containers
         return this.configuration.PortBindings == null || /* IPv4 or IPv6 */ this.configuration.PortBindings.Count == boundPorts || /* IPv4 and IPv6 */ 2 * this.configuration.PortBindings.Count == boundPorts;
       }
 
-      async Task<bool> CheckWaitStrategy(IWaitUntil wait)
-      {
-        this.container = await this.client.InspectContainerAsync(this.container.ID, ct)
-          .ConfigureAwait(false);
-
-        return await wait.UntilAsync(this)
-          .ConfigureAwait(false);
-      }
-
       await this.client.StartAsync(this.container.ID, ct)
         .ConfigureAwait(false);
 
@@ -428,11 +420,8 @@ namespace DotNet.Testcontainers.Containers
       await this.configuration.StartupCallback(this, ct)
         .ConfigureAwait(false);
 
-      foreach (var waitStrategy in this.configuration.WaitStrategies)
-      {
-        await WaitStrategy.WaitUntilAsync(() => CheckWaitStrategy(waitStrategy), TimeSpan.FromSeconds(1), Timeout.InfiniteTimeSpan, ct)
-          .ConfigureAwait(false);
-      }
+      await this.ExecuteWaitStrategiesAsync(ct)
+        .ConfigureAwait(false);
 
       this.Started?.Invoke(this, EventArgs.Empty);
     }
@@ -486,6 +475,56 @@ namespace DotNet.Testcontainers.Containers
     {
       _ = Guard.Argument(this.semaphoreSlim, nameof(this.semaphoreSlim))
         .ThrowIf(argument => argument.Value.CurrentCount > 0, _ => new InvalidOperationException("Unsafe method call requires lock."));
+    }
+
+    private async Task ExecuteWaitStrategiesAsync(CancellationToken ct = default)
+    {
+      async Task<bool> CheckWaitStrategy(IWaitUntil wait)
+      {
+        this.container = await this.client.InspectContainerAsync(this.container.ID, ct)
+          .ConfigureAwait(false);
+
+        return await wait.UntilAsync(this)
+          .ConfigureAwait(false);
+      }
+
+      foreach (var waitStrategy in this.configuration.WaitStrategies)
+      {
+        if (waitStrategy is WaitUntilBase waitUntilBase && waitUntilBase.WaitStrategyOptions != null)
+        {
+          var retries = waitUntilBase.WaitStrategyOptions.Retries ?? 1;
+
+          for (var i = 1; i <= retries; i++)
+          {
+            try
+            {
+              await WaitStrategy.WaitUntilAsync(() => CheckWaitStrategy(waitStrategy), TimeSpan.FromSeconds(1), waitUntilBase.WaitStrategyOptions.GetTimeout(i), ct)
+                .ConfigureAwait(false);
+            }
+            catch (TimeoutException)
+            {
+              if (i == retries)
+              {
+                throw;
+              }
+            }
+            finally
+            {
+              var backoff = waitUntilBase.WaitStrategyOptions.GetBackoff(i);
+              if (backoff > 0)
+              {
+                await Task.Delay(backoff, ct)
+                  .ConfigureAwait(false);
+              }
+            }
+          }
+        }
+        else
+        {
+          await WaitStrategy.WaitUntilAsync(() => CheckWaitStrategy(waitStrategy), TimeSpan.FromSeconds(1), Timeout.InfiniteTimeSpan, ct)
+            .ConfigureAwait(false);
+        }
+      }
     }
 
     private sealed class AcquireLock : IDisposable
