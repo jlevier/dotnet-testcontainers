@@ -4,6 +4,7 @@ namespace DotNet.Testcontainers.Configurations
   using System.Collections.Generic;
   using System.IO;
   using System.Text.RegularExpressions;
+  using DotNet.Testcontainers.Configurations.WaitStrategies;
   using JetBrains.Annotations;
 
   /// <summary>
@@ -65,6 +66,15 @@ namespace DotNet.Testcontainers.Configurations
     /// <returns>A configured instance of <see cref="IWaitForContainerOS" />.</returns>
     [PublicAPI]
     IWaitForContainerOS UntilMessageIsLogged(string pattern);
+
+    /// <summary>
+    /// Waits until the message is logged.
+    /// </summary>
+    /// <param name="pattern">The regular expression that matches the log message.</param>
+    /// <param name="options">The options to configure the wait strategy.</param>
+    /// <returns>A configured instance of <see cref="IWaitForContainerOS" />.</returns>
+    [PublicAPI]
+    IWaitForContainerOS UntilMessageIsLogged(string pattern, Action<WaitStrategyOptions> options);
 
     /// <summary>
     /// Waits until the message is logged.

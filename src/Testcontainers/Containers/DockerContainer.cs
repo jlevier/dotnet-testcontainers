@@ -386,15 +386,6 @@ namespace DotNet.Testcontainers.Containers
         return _configuration.PortBindings == null || /* IPv4 or IPv6 */ _configuration.PortBindings.Count == boundPorts || /* IPv4 and IPv6 */ 2 * _configuration.PortBindings.Count == boundPorts;
       }
 
-      async Task<bool> CheckWaitStrategy(IWaitUntil wait)
-      {
-        _container = await _client.InspectContainerAsync(_container.ID, ct)
-          .ConfigureAwait(false);
-
-        return await wait.UntilAsync(this)
-          .ConfigureAwait(false);
-      }
-
       await _client.StartAsync(_container.ID, ct)
         .ConfigureAwait(false);
 
@@ -406,11 +397,8 @@ namespace DotNet.Testcontainers.Containers
       await _configuration.StartupCallback(this, ct)
         .ConfigureAwait(false);
 
-      foreach (var waitStrategy in _configuration.WaitStrategies)
-      {
-        await WaitStrategy.WaitUntilAsync(() => CheckWaitStrategy(waitStrategy), TimeSpan.FromSeconds(1), Timeout.InfiniteTimeSpan, ct)
-          .ConfigureAwait(false);
-      }
+      await this.ExecuteWaitStrategiesAsync(ct)
+        .ConfigureAwait(false);
 
       Started?.Invoke(this, EventArgs.Empty);
     }
@@ -454,6 +442,56 @@ namespace DotNet.Testcontainers.Containers
     protected override bool Exists()
     {
       return ContainerHasBeenCreatedStates.HasFlag(State);
+    }
+
+    private async Task ExecuteWaitStrategiesAsync(CancellationToken ct = default)
+    {
+      async Task<bool> CheckWaitStrategy(IWaitUntil wait)
+      {
+        _container = await _client.InspectContainerAsync(_container.ID, ct)
+          .ConfigureAwait(false);
+
+        return await wait.UntilAsync(this)
+          .ConfigureAwait(false);
+      }
+
+      foreach (var waitStrategy in _configuration.WaitStrategies)
+      {
+        if (waitStrategy is WaitUntilBase waitUntilBase && waitUntilBase.WaitStrategyOptions != null)
+        {
+          var retries = waitUntilBase.WaitStrategyOptions.Retries ?? 1;
+
+          for (var i = 1; i <= retries; i++)
+          {
+            try
+            {
+              await WaitStrategy.WaitUntilAsync(() => CheckWaitStrategy(waitStrategy), TimeSpan.FromSeconds(1), waitUntilBase.WaitStrategyOptions.GetTimeout(i), ct)
+                .ConfigureAwait(false);
+            }
+            catch (TimeoutException)
+            {
+              if (i == retries)
+              {
+                throw;
+              }
+            }
+            finally
+            {
+              var backoff = waitUntilBase.WaitStrategyOptions.GetBackoff(i);
+              if (backoff > 0)
+              {
+                await Task.Delay(backoff, ct)
+                  .ConfigureAwait(false);
+              }
+            }
+          }
+        }
+        else
+        {
+          await WaitStrategy.WaitUntilAsync(() => CheckWaitStrategy(waitStrategy), TimeSpan.FromSeconds(1), Timeout.InfiniteTimeSpan, ct)
+            .ConfigureAwait(false);
+        }
+      }
     }
   }
 }
