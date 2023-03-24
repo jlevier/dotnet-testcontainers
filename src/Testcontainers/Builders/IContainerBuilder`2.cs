@@ -1,4 +1,4 @@
-﻿namespace DotNet.Testcontainers.Builders
+namespace DotNet.Testcontainers.Builders
 {
   using System;
   using System.Collections.Generic;
@@ -6,6 +6,7 @@
   using System.Threading.Tasks;
   using Docker.DotNet.Models;
   using DotNet.Testcontainers.Configurations;
+  using DotNet.Testcontainers.Configurations.WaitStrategies;
   using DotNet.Testcontainers.Containers;
   using DotNet.Testcontainers.Images;
   using DotNet.Testcontainers.Networks;
@@ -346,6 +347,15 @@
     /// <returns>A configured instance of <typeparamref name="TBuilderEntity" />.</returns>
     [PublicAPI]
     TBuilderEntity WithWaitStrategy(IWaitForContainerOS waitStrategy);
+
+    /// <summary>
+    /// Sets the wait strategies to indicate readiness of the container.
+    /// </summary>
+    /// <param name="waitStrategy">The wait strategy.</param>
+    /// <param name="options">The options to further configure the wait strategy.</param>
+    /// <returns>A configured instance of <typeparamref name="TBuilderEntity" />.</returns>
+    [PublicAPI]
+    TBuilderEntity WithWaitStrategy(IWaitForContainerOS waitStrategy, Action<WaitStrategyOptions> options);
 
     /// <summary>
     /// Sets a startup callback to invoke after the container start.

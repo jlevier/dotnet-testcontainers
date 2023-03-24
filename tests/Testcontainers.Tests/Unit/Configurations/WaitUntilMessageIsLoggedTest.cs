@@ -20,7 +20,9 @@ namespace DotNet.Testcontainers.Tests.Unit
         .WithImage(CommonImages.Alpine)
         .WithEntrypoint("/bin/sh", "-c")
         .WithCommand("echo \"Started\" | tee /dev/stderr && trap : TERM INT; sleep infinity & wait")
-        .WithWaitStrategy(Wait.ForUnixContainer().UntilMessageIsLogged("Started"))
+        .WithWaitStrategy(
+          Wait.ForUnixContainer().UntilMessageIsLogged("Started"),
+          options => options.WithRetries(5).WithTimeout(TimeSpan.FromSeconds(10)))
         .Build();
     }
 

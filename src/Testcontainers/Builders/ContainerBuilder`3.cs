@@ -8,6 +8,7 @@ namespace DotNet.Testcontainers.Builders
   using System.Threading.Tasks;
   using Docker.DotNet.Models;
   using DotNet.Testcontainers.Configurations;
+  using DotNet.Testcontainers.Configurations.WaitStrategies;
   using DotNet.Testcontainers.Containers;
   using DotNet.Testcontainers.Images;
   using DotNet.Testcontainers.Networks;
@@ -289,6 +290,15 @@ namespace DotNet.Testcontainers.Builders
     /// <inheritdoc cref="IContainerBuilder{TBuilderEntity, TContainerEntity}" />
     public TBuilderEntity WithWaitStrategy(IWaitForContainerOS waitStrategy)
     {
+      return this.Clone(new ContainerConfiguration(waitStrategies: waitStrategy.Build()));
+    }
+
+    /// <inheritdoc cref="IContainerBuilder{TBuilderEntity, TContainerEntity}" />
+    public TBuilderEntity WithWaitStrategy(IWaitForContainerOS waitStrategy, Action<WaitStrategyOptions> options)
+    {
+      var finalOptions = new WaitStrategyOptions();
+      options.Invoke(finalOptions);
+      waitStrategy.SetWaitOptions(finalOptions);
       return this.Clone(new ContainerConfiguration(waitStrategies: waitStrategy.Build()));
     }
 

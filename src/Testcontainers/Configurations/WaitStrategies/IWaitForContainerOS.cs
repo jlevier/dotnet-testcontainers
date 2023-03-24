@@ -4,6 +4,7 @@ namespace DotNet.Testcontainers.Configurations
   using System.Collections.Generic;
   using System.IO;
   using System.Text.RegularExpressions;
+  using DotNet.Testcontainers.Configurations.WaitStrategies;
   using JetBrains.Annotations;
 
   /// <summary>
@@ -117,5 +118,7 @@ namespace DotNet.Testcontainers.Configurations
     /// <returns>List with all configured wait strategies.</returns>
     [PublicAPI]
     IEnumerable<IWaitUntil> Build();
+
+    void SetWaitOptions(WaitStrategyOptions options);
   }
 }
